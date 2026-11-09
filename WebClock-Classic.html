@@ -96,6 +96,82 @@
         #fullscreen-button:hover {
             color: #ffffff;
         }
+
+        #brightness-controls {
+            position: fixed;
+            top: calc(20vh);
+            right: 1.5vw;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: clamp(6px, 0.8vw, 12px);
+            width: clamp(42px, 4vw, 58px);
+        }
+
+        #brightness-slider {
+            width: clamp(110px, 10vw, 150px);
+            height: 20px;
+            align-self: center;
+            margin: clamp(45px, 5vw, 75px) 0;
+            transform: rotate(-90deg);
+            appearance: none;
+            -webkit-appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        #brightness-slider::-webkit-slider-runnable-track {
+            height: 6px;
+            background: #252525;
+            border-radius: 999px;
+        }
+
+        #brightness-slider::-moz-range-track {
+            height: 6px;
+            background: #252525;
+            border-radius: 999px;
+        }
+
+        #brightness-slider::-webkit-slider-thumb {
+            width: 16px;
+            height: 16px;
+            margin-top: -5px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #111111;
+            border: 1px solid #303030;
+            border-radius: 50%;
+        }
+
+        #brightness-slider::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            background: #111111;
+            border: 1px solid #303030;
+            border-radius: 50%;
+        }
+
+        #brightness-presets {
+            display: flex;
+            flex-direction: column;
+            gap: clamp(4px, 0.5vw, 8px);
+        }
+
+        .brightness-button {
+            padding: clamp(5px, 0.6vw, 9px) 4px;
+            background-color: #080808;
+            color: #454545;
+            border: none;
+            border-radius: 4px;
+            font-size: clamp(0.65rem, 1vw, 1rem);
+            cursor: pointer;
+        }
+
+        .brightness-button:hover,
+        .brightness-button[aria-pressed="true"] {
+            color: #777777;
+            background-color: #111111;
+        }
     </style>
 </head>
 <body>
@@ -113,6 +189,17 @@
     </div>
 
     <button id="fullscreen-button" type="button" aria-label="Toggle fullscreen">⛶</button>
+
+    <div id="brightness-controls" aria-label="화면 밝기 조절">
+        <input id="brightness-slider" type="range" min="20" max="100" value="100" aria-label="밝기" aria-valuetext="100%">
+        <div id="brightness-presets">
+            <button class="brightness-button" type="button" data-brightness="100" aria-pressed="true">100%</button>
+            <button class="brightness-button" type="button" data-brightness="75" aria-pressed="false">75%</button>
+            <button class="brightness-button" type="button" data-brightness="50" aria-pressed="false">50%</button>
+            <button class="brightness-button" type="button" data-brightness="35" aria-pressed="false">35%</button>
+            <button class="brightness-button" type="button" data-brightness="20" aria-pressed="false">20%</button>
+        </div>
+    </div>
 
     <script>
         function updateTime() {
@@ -161,6 +248,27 @@
         }
 
         document.getElementById('fullscreen-button').addEventListener('click', toggleFullscreen);
+
+        const brightnessSlider = document.getElementById('brightness-slider');
+        const brightnessButtons = document.querySelectorAll('.brightness-button');
+
+        function setBrightness(value) {
+            const brightness = Math.min(100, Math.max(20, Number(value)));
+            const channel = Math.round(255 * brightness / 100);
+            document.body.style.color = `rgb(${channel}, ${channel}, ${channel})`;
+            brightnessSlider.value = brightness;
+            brightnessSlider.setAttribute('aria-valuetext', `${brightness}%`);
+            brightnessButtons.forEach(button => {
+                button.setAttribute('aria-pressed', Number(button.dataset.brightness) === brightness ? 'true' : 'false');
+            });
+            localStorage.setItem('webclock-brightness', String(brightness));
+        }
+
+        brightnessSlider.addEventListener('input', event => setBrightness(event.target.value));
+        brightnessButtons.forEach(button => {
+            button.addEventListener('click', () => setBrightness(button.dataset.brightness));
+        });
+        setBrightness(localStorage.getItem('webclock-brightness') || 100);
 
         updateTime();
         setInterval(updateTime, 1000);
