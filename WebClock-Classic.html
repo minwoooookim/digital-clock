@@ -5,57 +5,96 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Current Time</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: Arial, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
             flex-direction: column;
+            width: 100%;
             height: 100vh;
+            height: 100dvh;
             margin: 0;
-            gap: 1rem;
+            padding: 2vw;
+            gap: min(8vh);
+            overflow: hidden;
             background-color: #000000;
             color: #ffffff;
         }
+
         #time-container {
             display: flex;
-            gap: 1rem;
+            align-items: center;
+            justify-content: center;
+            gap: min(1vw);
+            max-width: 100%;
+            flex-shrink: 1;
         }
+
         #time {
-            font-size: 30rem
+            /* 화면 너비와 높이 중 더 작은 기준에 맞춰 글자 크기를 조절 */
+            font-size: min(29vw, 55vh, 65rem);
+            line-height: 0.9;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
         }
-        #right-side{
+
+        #right-side {
             display: flex;
             align-items: center;
             flex-direction: column;
             justify-content: center;
-            margin-left: 1rem;
+            gap: min(10vh);
+            margin-left: min(1vw, 1rem);
+            flex-shrink: 1;
         }
+
         .seconds-ampm {
-            font-size: 7rem;
-            margin: 3rem 1rem;
+            font-size: min(6vw, 12vh, 12rem);
+            line-height: 1.1;
+            margin: 0 min(1vw, 1rem);
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
         }
-        #date-day{
+
+        #date-day {
             display: flex;
             flex-direction: row;
-            align-content: center;
+            align-items: center;
             flex-wrap: wrap;
             justify-content: center;
-            font-size: 8rem;
-            margin: 0rem;
-            gap: 1rem;
+            max-width: 100%;
+            font-size: min(6.5vw, 10vh, 14rem);
+            line-height: 1.1;
+            margin: 0;
+            gap: min(1vw, 1rem);
+            text-align: center;
         }
+
+        #date,
+        #day {
+            white-space: nowrap;
+        }
+
         #fullscreen-button {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            font-size: 1.5rem;
-            padding: 22px 28px;
+            position: fixed;
+            top: 1.5vh;
+            right: 1.5vw;
+            font-size: clamp(0.75rem, 1.5vw, 1.5rem);
+            padding: clamp(6px, 1.2vw, 22px) clamp(8px, 1.5vw, 28px);
             background-color: #0f0f0f;
-            color: #2c2c2c;
+            color: #777777;
             border: none;
             border-radius: 5px;
             cursor: pointer;
+        }
+
+        #fullscreen-button:hover {
+            color: #ffffff;
         }
     </style>
 </head>
@@ -67,11 +106,13 @@
             <div id="seconds" class="seconds-ampm"></div>
         </div>
     </div>
+
     <div id="date-day">
         <div id="date"></div>
         <div id="day"></div>
     </div>
-    <button id="fullscreen-button"></button>
+
+    <button id="fullscreen-button" type="button" aria-label="Toggle fullscreen">⛶</button>
 
     <script>
         function updateTime() {
@@ -81,50 +122,48 @@
             const seconds = String(now.getSeconds()).padStart(2, '0');
 
             const ampm = hours >= 12 ? 'PM' : 'AM';
-            const formattedHours = String(hours % 12 || 12).padStart(2);
+            const formattedHours = String(hours % 12 || 12).padStart(2, '0');
 
             const date = String(now.getDate()).padStart(2, '0');
-            const month = String(now.getMonth() + 1).padStart(2, '0'); // 월은 0부터 시작하므로 +1
-            const year = String(now.getFullYear()).slice(-2); // 연도 끝 두 자릿수
-
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const year = String(now.getFullYear()).slice(-2);
             const formattedDate = `${year}.${month}.${date}`;
 
             const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
             const day = daysOfWeek[now.getDay()];
 
             document.getElementById('time').textContent = `${formattedHours}:${minutes}`;
-            document.getElementById('ampm').textContent = `${ampm}`;
-            document.getElementById('seconds').textContent = `${seconds}`;
-
+            document.getElementById('ampm').textContent = ampm;
+            document.getElementById('seconds').textContent = seconds;
             document.getElementById('date').textContent = formattedDate;
             document.getElementById('day').textContent = day;
         }
 
         function toggleFullscreen() {
             if (!document.fullscreenElement) {
-                if (document.documentElement.requestFullscreen) {
-                    document.documentElement.requestFullscreen();
-                } else if (document.documentElement.webkitRequestFullscreen) { /* Safari */
-                    document.documentElement.webkitRequestFullscreen();
-                } else if (document.documentElement.msRequestFullscreen) { /* IE11 */
-                    document.documentElement.msRequestFullscreen();
+                const element = document.documentElement;
+                if (element.requestFullscreen) {
+                    element.requestFullscreen();
+                } else if (element.webkitRequestFullscreen) {
+                    element.webkitRequestFullscreen();
+                } else if (element.msRequestFullscreen) {
+                    element.msRequestFullscreen();
                 }
             } else {
                 if (document.exitFullscreen) {
                     document.exitFullscreen();
-                } else if (document.webkitExitFullscreen) { /* Safari */
+                } else if (document.webkitExitFullscreen) {
                     document.webkitExitFullscreen();
-                } else if (document.msExitFullscreen) { /* IE11 */
+                } else if (document.msExitFullscreen) {
                     document.msExitFullscreen();
                 }
             }
         }
 
         document.getElementById('fullscreen-button').addEventListener('click', toggleFullscreen);
-        document.getElementById('fullscreen-button').addEventListener('touchstart', toggleFullscreen);
 
-        setInterval(updateTime, 1);
-        updateTime();  // 페이지 로드 시 즉시 실행
+        updateTime();
+        setInterval(updateTime, 1000);
     </script>
 </body>
 </html>
