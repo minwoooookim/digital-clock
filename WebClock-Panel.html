@@ -487,8 +487,25 @@
                 && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180;
         }
 
+        
         async function findLocation() {
-            // 기기의 위치를 우선 사용하고, 불가능한 경우 IP 기반의 대략적인 지역을 사용합니다.
+            const LOCATION_KEY = "webclock-panel-location";
+
+            // 1. 저장된 위치가 있으면 재사용
+            try {
+                const saved = localStorage.getItem(LOCATION_KEY);
+                if (saved) {
+                    const location = JSON.parse(saved);
+
+                    if (validCoordinates(location.latitude, location.longitude)) {
+                        return location;
+                    }
+                }
+            } catch {
+                // 저장소 사용 불가 시 새 위치 확인
+            }
+
+            // 2. 최초 한 번만 기기 위치 확인
             if (navigator.geolocation) {
                 try {
                     const position = await new Promise((resolve, reject) => {
@@ -498,21 +515,37 @@
                             maximumAge: 10 * 60 * 1000
                         });
                     });
-                    const { latitude, longitude } = position.coords;
-                    if (validCoordinates(latitude, longitude)) {
-                        return { latitude, longitude };
+
+                    const location = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    };
+
+                    if (validCoordinates(location.latitude, location.longitude)) {
+                        localStorage.setItem(LOCATION_KEY, JSON.stringify(location));
+                        return location;
                     }
                 } catch {
-                    // 위치 권한 거부, 기기 미지원, 시간 초과 시 IP 위치로 이어집니다.
+                    // 위치 권한 거부 시 IP 기반 위치 사용
                 }
             }
 
+            // 3. 기기 위치를 가져오지 못하면 IP 위치 사용
             const data = await fetchJson("https://get.geojs.io/v1/ip/geo.json");
-            const latitude = parseFloat(data.latitude);
-            const longitude = parseFloat(data.longitude);
-            if (!validCoordinates(latitude, longitude)) throw new Error("위치 정보 없음");
-            return { latitude, longitude };
+
+            const location = {
+                latitude: parseFloat(data.latitude),
+                longitude: parseFloat(data.longitude)
+            };
+
+            if (!validCoordinates(location.latitude, location.longitude)) {
+                throw new Error("위치 정보 없음");
+            }
+
+            localStorage.setItem(LOCATION_KEY, JSON.stringify(location));
+            return location;
         }
+
 
         async function updateWeather() {
             if (weatherLoading) return;
