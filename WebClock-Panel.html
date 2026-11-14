@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
+    <title>시간과 날씨</title>
+    <script>
+        function normalizeBrightness(value) {
+            const number = Number(value);
+            if (!Number.isFinite(number)) return 100;
+            return Math.min(100, Math.max(10, Math.round(number)));
+        }
+
+        // 저장한 밝기를 첫 화면부터 적용합니다.
+        try {
+            const saved = localStorage.getItem("webclock-panel-brightness");
+            const brightness = normalizeBrightness(saved === null ? 100 : saved);
+            const channel = Math.round(255 * brightness / 100);
+            document.documentElement.style.setProperty("--foreground", `rgb(${channel}, ${channel}, ${channel})`);
+        } catch { /* 저장소를 사용할 수 없어도 패널은 실행합니다. */ }
+    </script>
+    <style>
+        * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
+
+        html, body {
+            margin: 0;
+            background: #000;
+            color: var(--foreground, #fff);
+        }
+
+        body {
+            font-family: Arial, "Noto Sans KR", sans-serif;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: min(5vh, 3rem);
+            width: 100%;
+            min-height: 100vh;
+            min-height: 100dvh;
+            padding: 4vh 3vw;
+            text-align: center;
+        }
+
+        .clock {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3vw;
+            white-space: nowrap;
+        }
+
+        #time {
+            font-size: min(28vw, 43vh);
+            font-weight: 400;
+            line-height: 0.95;
+            letter-spacing: -0.04em;
+        }
+
+        .clock-side {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            gap: min(5vw, 7vh);
+            font-size: min(6vw, 10vh);
+            line-height: 1;
+        }
+
+        .date {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.5em;
+            font-size: min(6.5vw, 9vh);
+            line-height: 1.2;
+        }
+
+        .weather {
+            max-width: min(100%, calc(100vw - 144px));
+        }
+
+        .weather-summary {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            column-gap: 0.65em;
+            row-gap: 0.2em;
+            font-size: min(4.5vw, 7vh);
+            line-height: 1.35;
+        }
+
+        .weather-summary span { white-space: nowrap; }
+
+        .condition-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3em;
+            max-width: 100%;
+        }
+
+        #condition { white-space: normal; }
+
+        svg {
+            display: block;
+            width: 24px;
+            height: 24px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 1.6;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .icon-library {
+            position: absolute;
+            width: 0;
+            height: 0;
+            overflow: hidden;
+        }
+
+        #weather-icon { width: 1.3em; height: 1.3em; flex-shrink: 0; }
+
+        button, input { -webkit-tap-highlight-color: transparent; }
+
+        button {
+            border: 0;
+            color: inherit;
+            background: #000;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        button:focus-visible, input:focus-visible {
+            outline: 1px solid currentColor;
+            outline-offset: 4px;
+        }
+
+        .toolbar {
+            position: fixed;
+            z-index: 1;
+            top: max(8px, env(safe-area-inset-top));
+            right: max(8px, env(safe-area-inset-right));
+            display: flex;
+            align-items: flex-start;
+            gap: 4px;
+        }
+
+        .tool-button {
+            display: grid;
+            place-items: center;
+            width: 48px;
+            height: 48px;
+            padding: 12px;
+            border: 0;
+            border-radius: 6px;
+            opacity: 0.35;
+        }
+
+        .tool-button:hover, .tool-button:focus-visible { opacity: 1; }
+
+        .brightness-controls {
+            --slider-length: clamp(90px, 22vh, 160px);
+            position: fixed;
+            z-index: 1;
+            top: 50%;
+            right: max(8px, env(safe-area-inset-right));
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .brightness-slider-wrap {
+            position: relative;
+            width: 60px;
+            height: var(--slider-length);
+        }
+
+        #brightness-slider {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: var(--slider-length);
+            height: 44px;
+            margin: 0;
+            transform: translate(-50%, -50%) rotate(-90deg);
+            appearance: none;
+            -webkit-appearance: none;
+            background: transparent;
+            color: inherit;
+            cursor: pointer;
+            touch-action: none;
+            opacity: 0.4;
+        }
+
+        #brightness-slider:hover, #brightness-slider:focus-visible { opacity: 1; }
+
+        #brightness-slider::-webkit-slider-runnable-track {
+            height: 3px;
+            border-radius: 3px;
+            background: currentColor;
+        }
+
+        #brightness-slider::-webkit-slider-thumb {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            margin-top: -9.5px;
+            border: 1px solid currentColor;
+            border-radius: 50%;
+            background: #000;
+        }
+
+        #brightness-slider::-moz-range-track {
+            height: 3px;
+            border-radius: 3px;
+            background: currentColor;
+        }
+
+        #brightness-slider::-moz-range-thumb {
+            width: 22px;
+            height: 22px;
+            border: 1px solid currentColor;
+            border-radius: 50%;
+            background: #000;
+        }
+
+        .brightness-presets { display: flex; flex-direction: column; gap: 8px; }
+
+        .brightness-presets button {
+            width: 60px;
+            min-height: 48px;
+            padding: 0 4px;
+            border: 0;
+            font: inherit;
+            font-size: 14px;
+            opacity: 0.4;
+        }
+
+        .brightness-presets button:hover,
+        .brightness-presets button:focus-visible { opacity: 1; }
+
+        .brightness-presets button[aria-pressed="true"] {
+            opacity: 0.8;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip-path: inset(50%);
+            white-space: nowrap;
+        }
+
+        #retry {
+            display: block;
+            margin: 0.5em auto 0;
+            padding: 12px 20px;
+            border: 0;
+            border-radius: 4px;
+            background: #000;
+            color: inherit;
+            font: inherit;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        @media (max-width: 480px) {
+            #time { font-size: min(20vw, 43vh); }
+        }
+
+    </style>
+</head>
+<body>
+    <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+            <symbol id="icon-sun" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="4"/>
+                <path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/>
+            </symbol>
+            <symbol id="icon-moon" viewBox="0 0 24 24">
+                <path d="M20.5 14A9 9 0 0 1 10 3a9 9 0 1 0 10.5 11Z"/>
+            </symbol>
+            <symbol id="icon-cloud" viewBox="0 0 24 24">
+                <path d="M6 18a4 4 0 0 1-.5-8A6.5 6.5 0 0 1 18 8a5 5 0 0 1 0 10Z"/>
+            </symbol>
+            <symbol id="icon-partly-day" viewBox="0 0 24 24">
+                <path d="M10 2v2M2 10h2m.3-5.7 1.4 1.4m10-1.4-1.4 1.4M6 12a4 4 0 1 1 8-3"/>
+                <path d="M8 21a4 4 0 0 1-.3-8 5.5 5.5 0 0 1 10.7-.6A4.3 4.3 0 0 1 18 21Z"/>
+            </symbol>
+            <symbol id="icon-partly-night" viewBox="0 0 24 24">
+                <path d="M8 12a6 6 0 0 1 .5-10 6 6 0 0 0 6 7"/>
+                <path d="M8 21a4 4 0 0 1-.3-8 5.5 5.5 0 0 1 10.7-.6A4.3 4.3 0 0 1 18 21Z"/>
+            </symbol>
+            <symbol id="icon-fog" viewBox="0 0 24 24">
+                <path d="M6 12a4 4 0 0 1-.5-8A6.5 6.5 0 0 1 18 5a3.5 3.5 0 0 1 1 7M3 16h18M5 20h14"/>
+            </symbol>
+            <symbol id="icon-rain" viewBox="0 0 24 24">
+                <path d="M6 14a4 4 0 0 1-.5-8A6.5 6.5 0 0 1 18 5a4.5 4.5 0 0 1 0 9ZM8 17l-1 3m6-3-1 3m6-3-1 3"/>
+            </symbol>
+            <symbol id="icon-drizzle" viewBox="0 0 24 24">
+                <path d="M6 14a4 4 0 0 1-.5-8A6.5 6.5 0 0 1 18 5a4.5 4.5 0 0 1 0 9ZM7 18v.2m5-.2v.2m5-.2v.2M9 21v.2m5-.2v.2"/>
+            </symbol>
+            <symbol id="icon-snow" viewBox="0 0 24 24">
+                <path d="M6 13a4 4 0 0 1-.5-8A6.5 6.5 0 0 1 18 4a4.5 4.5 0 0 1 0 9ZM12 15v8m-3.5-6 7 4m-7 0 7-4M5 18v.2m14-.2v.2"/>
+            </symbol>
+            <symbol id="icon-thunder" viewBox="0 0 24 24">
+                <path d="M7 15H6a4 4 0 0 1-.5-8A6.5 6.5 0 0 1 18 6a4.5 4.5 0 0 1 0 9h-1M12 11l-4 7h5l-1 5 5-8h-5Z"/>
+            </symbol>
+            <symbol id="icon-unknown" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.5-2.5 2-2.5 3.5m0 3v.2"/>
+            </symbol>
+        </defs>
+    </svg>
+
+    <nav class="toolbar" aria-label="화면 설정">
+        <button id="fullscreen-button" class="tool-button" type="button" aria-label="전체화면" title="전체화면" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path id="fullscreen-path" d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg>
+        </button>
+    </nav>
+    <div class="brightness-controls" role="group" aria-label="밝기 조절">
+        <div class="brightness-slider-wrap">
+            <input id="brightness-slider" type="range" min="10" max="100" step="1" value="100" aria-label="밝기" aria-orientation="vertical" aria-valuetext="100%">
+        </div>
+        <div class="brightness-presets">
+            <button type="button" data-brightness="100" aria-label="밝기 100%" aria-pressed="true">100%</button>
+            <button type="button" data-brightness="50" aria-label="밝기 50%" aria-pressed="false">50%</button>
+            <button type="button" data-brightness="20" aria-label="밝기 20%" aria-pressed="false">20%</button>
+            <button type="button" data-brightness="10" aria-label="밝기 10%" aria-pressed="false">10%</button>
+        </div>
+    </div>
+    <div id="control-status" class="sr-only" role="status"></div>
+
+    <main class="panel" aria-label="시간과 날씨 패널">
+        <div class="clock" role="timer" aria-label="현재 시간">
+            <time id="time">--:--</time>
+            <div class="clock-side">
+                <span id="ampm">--</span>
+                <span id="seconds">--</span>
+            </div>
+        </div>
+
+        <div class="date">
+            <span id="date">----.--.--</span>
+            <span id="day" lang="en">---</span>
+        </div>
+
+        <!-- Weather data: Open-Meteo (https://open-meteo.com/), CC BY 4.0.
+             IP geolocation: GeoJS (https://www.geojs.io/). -->
+        <section class="weather" lang="en" aria-label="Weather" aria-live="polite">
+            <div class="weather-summary">
+                <span id="temperature">--°C</span>
+                <span class="condition-group">
+                    <svg id="weather-icon" viewBox="0 0 24 24" aria-hidden="true"><use id="weather-symbol" href="#icon-unknown"/></svg>
+                    <span id="condition">Loading weather</span>
+                </span>
+            </div>
+            <button id="retry" type="button" hidden>Retry</button>
+        </section>
+    </main>
+
+    <script>
+        "use strict";
+
+        const elements = Object.fromEntries([
+            "time", "ampm", "seconds", "date", "day", "temperature", "condition",
+            "weather-symbol", "retry", "brightness-slider", "fullscreen-button", "fullscreen-path", "control-status"
+        ].map(id => [id, document.getElementById(id)]));
+
+        const weekdays = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+        const weatherDescriptions = {
+            0: "Clear", 1: "Mostly clear", 2: "Partly cloudy", 3: "Overcast",
+            45: "Fog", 48: "Freezing fog",
+            51: "Light drizzle", 53: "Drizzle", 55: "Heavy drizzle",
+            56: "Freezing drizzle", 57: "Heavy freezing drizzle",
+            61: "Light rain", 63: "Rain", 65: "Heavy rain",
+            66: "Freezing rain", 67: "Heavy freezing rain",
+            71: "Light snow", 73: "Snow", 75: "Heavy snow", 77: "Snow grains",
+            80: "Light showers", 81: "Showers", 82: "Heavy showers",
+            85: "Snow showers", 86: "Heavy snow showers",
+            95: "Thunderstorm", 96: "Thunderstorm with hail",
+            97: "Heavy thunderstorm", 99: "Heavy thunderstorm with hail"
+        };
+
+        const pad = value => String(value).padStart(2, "0");
+        let weatherTimer;
+        let weatherLoading = false;
+
+        function setBrightness(value) {
+            const brightness = normalizeBrightness(value);
+            const channel = Math.round(255 * brightness / 100);
+            document.documentElement.style.setProperty("--foreground", `rgb(${channel}, ${channel}, ${channel})`);
+            elements["brightness-slider"].value = brightness;
+            elements["brightness-slider"].setAttribute("aria-valuetext", `${brightness}%`);
+            document.querySelectorAll("[data-brightness]").forEach(button => {
+                button.setAttribute("aria-pressed", Number(button.dataset.brightness) === brightness ? "true" : "false");
+            });
+            try { localStorage.setItem("webclock-panel-brightness", String(brightness)); } catch { /* 저장소 미지원 */ }
+        }
+
+        function isFullscreen() {
+            return Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+        }
+
+        function syncFullscreenButton() {
+            const active = isFullscreen();
+            const label = active ? "전체화면 종료" : "전체화면";
+            elements["fullscreen-button"].setAttribute("aria-label", label);
+            elements["fullscreen-button"].setAttribute("aria-pressed", String(active));
+            elements["fullscreen-button"].title = label;
+            elements["fullscreen-path"].setAttribute("d", active
+                ? "M3 8h5V3m8 0v5h5M8 21v-5H3m13 5v-5h5"
+                : "M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5");
+        }
+
+        async function toggleFullscreen() {
+            try {
+                if (isFullscreen()) {
+                    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+                    if (!exit) throw new Error("전체화면 미지원");
+                    await exit.call(document);
+                } else {
+                    const root = document.documentElement;
+                    const enter = root.requestFullscreen || root.webkitRequestFullscreen;
+                    if (!enter) throw new Error("전체화면 미지원");
+                    await enter.call(root);
+                }
+                elements["control-status"].textContent = "";
+            } catch {
+                elements["control-status"].textContent = "전체화면을 사용할 수 없습니다. 브라우저의 전체화면 기능을 사용해 주세요.";
+                elements["fullscreen-button"].title = elements["control-status"].textContent;
+            }
+            syncFullscreenButton();
+        }
+
+        function weatherIcon(code, isDay) {
+            if (code === 0 || code === 1) return isDay ? "sun" : "moon";
+            if (code === 2) return isDay ? "partly-day" : "partly-night";
+            if (code === 3) return "cloud";
+            if (code === 45 || code === 48) return "fog";
+            if ([51, 53, 55, 56, 57].includes(code)) return "drizzle";
+            if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return "rain";
+            if ([71, 73, 75, 77, 85, 86].includes(code)) return "snow";
+            if ([95, 96, 97, 99].includes(code)) return "thunder";
+            return "unknown";
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const hours = now.getHours();
+            elements.time.textContent = `${pad(hours % 12 || 12)}:${pad(now.getMinutes())}`;
+            elements.time.dateTime = now.toISOString();
+            elements.ampm.textContent = hours >= 12 ? "PM" : "AM";
+            elements.seconds.textContent = pad(now.getSeconds());
+            elements.date.textContent = `${now.getFullYear()}.${pad(now.getMonth() + 1)}.${pad(now.getDate())}`;
+            elements.day.textContent = weekdays[now.getDay()];
+            setTimeout(updateClock, 1000 - Date.now() % 1000);
+        }
+
+        async function fetchJson(url) {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000);
+            try {
+                const response = await fetch(url, { signal: controller.signal, cache: "no-store" });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return await response.json();
+            } finally {
+                clearTimeout(timeout);
+            }
+        }
+
+        function validCoordinates(latitude, longitude) {
+            return Number.isFinite(latitude) && Number.isFinite(longitude)
+                && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180;
+        }
+
+        async function findLocation() {
+            // 기기의 위치를 우선 사용하고, 불가능한 경우 IP 기반의 대략적인 지역을 사용합니다.
+            if (navigator.geolocation) {
+                try {
+                    const position = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, {
+                            enableHighAccuracy: false,
+                            timeout: 8000,
+                            maximumAge: 10 * 60 * 1000
+                        });
+                    });
+                    const { latitude, longitude } = position.coords;
+                    if (validCoordinates(latitude, longitude)) {
+                        return { latitude, longitude };
+                    }
+                } catch {
+                    // 위치 권한 거부, 기기 미지원, 시간 초과 시 IP 위치로 이어집니다.
+                }
+            }
+
+            const data = await fetchJson("https://get.geojs.io/v1/ip/geo.json");
+            const latitude = parseFloat(data.latitude);
+            const longitude = parseFloat(data.longitude);
+            if (!validCoordinates(latitude, longitude)) throw new Error("위치 정보 없음");
+            return { latitude, longitude };
+        }
+
+        async function updateWeather() {
+            if (weatherLoading) return;
+            weatherLoading = true;
+            clearTimeout(weatherTimer);
+            elements.retry.hidden = true;
+            let nextUpdate = 10 * 60 * 1000;
+
+            try {
+                const location = await findLocation();
+                const url = new URL("https://api.open-meteo.com/v1/forecast");
+                url.search = new URLSearchParams({
+                    latitude: location.latitude,
+                    longitude: location.longitude,
+                    current: "temperature_2m,weather_code,is_day",
+                    temperature_unit: "celsius"
+                });
+                const data = await fetchJson(url);
+                const current = data.current;
+                if (!current || !Number.isFinite(current.temperature_2m)
+                    || !Number.isFinite(current.weather_code)) {
+                    throw new Error("날씨 정보 없음");
+                }
+
+                elements.temperature.textContent = `${current.temperature_2m.toFixed(1)}°C`;
+                elements.condition.textContent = weatherDescriptions[current.weather_code] || "Unknown weather";
+                elements["weather-symbol"].setAttribute("href", `#icon-${weatherIcon(current.weather_code, current.is_day !== 0)}`);
+            } catch {
+                elements.temperature.textContent = "--°C";
+                elements.condition.textContent = "Weather unavailable";
+                elements["weather-symbol"].setAttribute("href", "#icon-unknown");
+                elements.retry.hidden = false;
+                nextUpdate = 60 * 1000;
+            } finally {
+                weatherLoading = false;
+                weatherTimer = setTimeout(updateWeather, nextUpdate);
+            }
+        }
+
+        elements["brightness-slider"].addEventListener("input", event => setBrightness(event.target.value));
+        document.querySelectorAll("[data-brightness]").forEach(button => {
+            button.addEventListener("click", () => setBrightness(button.dataset.brightness));
+        });
+        elements["fullscreen-button"].addEventListener("click", toggleFullscreen);
+        document.addEventListener("fullscreenchange", syncFullscreenButton);
+        document.addEventListener("webkitfullscreenchange", syncFullscreenButton);
+        let initialBrightness = 100;
+        try { initialBrightness = localStorage.getItem("webclock-panel-brightness") ?? 100; } catch { /* 저장소 미지원 */ }
+        setBrightness(initialBrightness);
+        syncFullscreenButton();
+        elements.retry.addEventListener("click", updateWeather);
+        window.addEventListener("online", updateWeather);
+        updateClock();
+        updateWeather();
+    </script>
+</body>
+</html>
