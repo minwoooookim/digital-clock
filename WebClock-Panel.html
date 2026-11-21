@@ -175,6 +175,7 @@
             transform: translateY(-50%);
             display: flex;
             flex-direction: column;
+            align-items: center;
             gap: 8px;
         }
 
@@ -234,22 +235,24 @@
             background: #000;
         }
 
-        .brightness-presets { display: flex; flex-direction: column; gap: 8px; }
-
-        .brightness-presets button {
-            width: 60px;
-            min-height: 48px;
-            padding: 0 4px;
+        .brightness-controls > button {
+            display: grid;
+            place-items: center;
+            width: 64px;
+            height: 64px;
+            flex: 0 0 64px;
+            padding: 4px;
             border: 0;
+            border-radius: 4px;
             font: inherit;
             font-size: 14px;
             opacity: 0.4;
         }
 
-        .brightness-presets button:hover,
-        .brightness-presets button:focus-visible { opacity: 1; }
+        .brightness-controls > button:hover,
+        .brightness-controls > button:focus-visible { opacity: 1; }
 
-        .brightness-presets button[aria-pressed="true"] {
+        .brightness-controls > button[aria-pressed="true"] {
             opacity: 0.8;
         }
 
@@ -332,15 +335,11 @@
         </button>
     </nav>
     <div class="brightness-controls" role="group" aria-label="밝기 조절">
+        <button type="button" data-brightness="100" aria-label="밝기 100%" aria-pressed="true">100%</button>
         <div class="brightness-slider-wrap">
             <input id="brightness-slider" type="range" min="10" max="100" step="1" value="100" aria-label="밝기" aria-orientation="vertical" aria-valuetext="100%">
         </div>
-        <div class="brightness-presets">
-            <button type="button" data-brightness="100" aria-label="밝기 100%" aria-pressed="true">100%</button>
-            <button type="button" data-brightness="50" aria-label="밝기 50%" aria-pressed="false">50%</button>
-            <button type="button" data-brightness="20" aria-label="밝기 20%" aria-pressed="false">20%</button>
-            <button type="button" data-brightness="10" aria-label="밝기 10%" aria-pressed="false">10%</button>
-        </div>
+        <button type="button" data-brightness="10" aria-label="밝기 10%" aria-pressed="false">10%</button>
     </div>
     <div id="control-status" class="sr-only" role="status"></div>
 
